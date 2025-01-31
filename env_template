@@ -1,0 +1,38 @@
+# Required API Keys
+# Get your OpenRouter API key from https://openrouter.ai/
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+
+# Get your Pinecone API key from https://www.pinecone.io/
+PINECONE_API_KEY=your_pinecone_api_key_here
+
+# Optional: Pinecone Settings
+# Only change these if you want to use different values from the defaults
+PINECONE_INDEX_NAME=resume-analysis
+PINECONE_DIMENSION=768
+PINECONE_METRIC=cosine
+PINECONE_CLOUD=aws
+PINECONE_REGION=us-east-1
+
+# Optional: DeepSeek Model Settings
+# Only change these if you want to use different model parameters
+DEEPSEEK_MODEL=deepseek/deepseek-r1:nitro
+DEEPSEEK_TEMPERATURE=0.5
+DEEPSEEK_API_BASE=https://openrouter.ai/api/v1
+
+# Optional: Document Processing Settings
+# Adjust these based on your needs for text chunking
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=100
+
+# Optional: Data Directory
+# Change this if you want to store resumes in a different directory
+RESUME_DIR=resumes
+
+# Optional: Logging Level
+# Values: DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_LEVEL=INFO
+
+# Optional: Embeddings Settings
+# Change these if you want to use a different embeddings model
+EMBEDDINGS_MODEL=sentence-transformers/all-mpnet-base-v2
+EMBEDDINGS_DEVICE=cpu  # Change to 'cuda' if using GPU

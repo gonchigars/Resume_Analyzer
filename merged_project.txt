@@ -1,0 +1,938 @@
+# Merged File Contents
+# Generated on: 2025-01-30 16:02:05.839550
+# Source Directory: C:\Users\gonch\Desktop\6MGoal\ed-ai-engineer\FullStack\week11\Resume_Analyzer
+
+
+================================================================================
+# File: .\.streamlit\config.toml
+================================================================================
+
+[server]
+port = 8501
+
+
+================================================================================
+# File: .\__init__.py
+================================================================================
+
+# resume_analyzer/__init__.py
+"""Resume Analysis System
+
+A system for analyzing resumes against job requirements using AI and vector similarity search.
+"""
+
+__version__ = "1.0.0"
+
+================================================================================
+# File: .\app.py
+================================================================================
+
+# app.py
+import os
+import sys
+import asyncio
+import streamlit as st
+import warnings
+import time
+from typing import Dict, Any
+
+# Add the project root directory to Python path
+project_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, project_root)
+
+# Now use absolute imports
+from config.settings import settings
+from utils.logging_config import logger
+from services.resume_analyzer import ResumeAnalyzer
+
+# Suppress torch warnings
+warnings.filterwarnings('ignore', message='.*torch.classes.*')
+
+def log_to_console(message: str):
+    js_code = f"""
+    <script>
+        console.log({json.dumps(message)});
+    </script>
+    """
+    components.html(js_code)
+
+def initialize_session_state():
+    """Initialize Streamlit session state variables"""
+    if 'resume_analyzer' not in st.session_state:
+        st.session_state.resume_analyzer = None
+    if 'job_requirements' not in st.session_state:
+        st.session_state.job_requirements = ""
+    if 'refresh_key' not in st.session_state:
+        st.session_state.refresh_key = 0
+
+def handle_file_upload(uploaded_files):
+    """Handle uploaded resume files"""
+    if uploaded_files:
+        os.makedirs(settings.RESUME_DIR, exist_ok=True)
+        for file in uploaded_files:
+            with open(os.path.join(settings.RESUME_DIR, file.name), "wb") as f:
+                f.write(file.getbuffer())
+        st.success(f"✅ Saved {len(uploaded_files)} resumes")
+
+def display_stored_resumes():
+    """Display and manage stored resumes"""
+    stored_resumes = st.session_state.resume_analyzer.list_stored_resumes()
+    if stored_resumes:
+        st.write(f"Stored Resumes: {len(stored_resumes)}")
+        for resume in stored_resumes:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.text(os.path.basename(resume))
+            with col2:
+                if st.button("Delete", key=f"del_{resume}_{st.session_state.refresh_key}"):
+                    if st.session_state.resume_analyzer.delete_resume(resume):
+                        st.success("Resume deleted")
+                        st.session_state.refresh_key += 1
+                        time.sleep(2)
+                        st.rerun()
+    else:
+        st.info("No resumes in database")
+
+def display_analysis_results(results: Dict[str, Any]):
+    """Display resume analysis results"""
+    st.header(f"Analysis Results ({results['total_resumes']} resumes)")
+    
+    for i, result in enumerate(results['analysis'], 1):
+        with st.expander(
+            f"#{i} - {os.path.basename(result['resume_file'])} "
+            f"(Match Score: {result['match_score']}%)"
+        ):
+            st.markdown("### Summary")
+            st.write(result['summary'])
+            
+            st.markdown("### Matching Qualifications")
+            for qual in result['qualifications_match']:
+                st.markdown(f"- {qual}")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("### Missing Requirements")
+                for req in result['missing_requirements']:
+                    st.markdown(f"- {req}")
+            
+            with col2:
+                st.markdown("### Additional Skills")
+                for skill in result['additional_skills']:
+                    st.markdown(f"- {skill}")
+            
+            st.markdown(f"**Years of Relevant Experience:** {result['years_experience']}")
+
+def main():
+    """Main application function"""
+    st.write("## System Status")
+    st.write(f"OpenRouter Key: {'✅' if settings.OPENROUTER_API_KEY else '❌'}")
+    st.write(f"Pinecone Key: {'✅' if settings.PINECONE_API_KEY else '❌'}")
+    st.set_page_config(
+        page_title="Resume Analysis System",
+        page_icon="📄",
+        layout="wide"
+    )
+    # Usage in your code:
+    log_to_console("System initialized successfully")
+    
+    initialize_session_state()
+    
+    st.title("📄 Resume Analysis System")
+    
+    with st.sidebar:
+        # Database Management Section
+        if st.session_state.resume_analyzer:
+            st.header("Resume Database")
+            display_stored_resumes()
+        
+        st.header("System Controls")
+        
+        uploaded_files = st.file_uploader(
+            "Upload Resumes (PDF, TXT)", 
+            accept_multiple_files=True,
+            type=['pdf', 'txt']
+        )
+        
+        handle_file_upload(uploaded_files)
+        
+        if st.button("Initialize System", use_container_width=True):
+            with st.spinner("Initializing..."):
+                try:
+                    st.session_state.resume_analyzer = ResumeAnalyzer(
+                        openrouter_api_key=settings.OPENROUTER_API_KEY,
+                        pinecone_api_key=settings.PINECONE_API_KEY
+                    )
+                    st.success("✅ System initialized!")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+        
+        if st.session_state.resume_analyzer and st.button("Process Resumes", use_container_width=True):
+            with st.spinner("Processing resumes..."):
+                success, message = st.session_state.resume_analyzer.process_resumes()
+                if success:
+                    st.success(f"✅ {message}")
+                    st.session_state.refresh_key += 1
+                    st.rerun()
+                else:
+                    st.error(f"❌ {message}")
+    
+    if st.session_state.resume_analyzer:
+        st.header("Job Requirements")
+        job_requirements = st.text_area(
+            "Enter the job requirements:",
+            value=st.session_state.job_requirements,
+            height=200
+        )
+        
+        if st.button("Analyze Resumes", type="primary"):
+            if not job_requirements:
+                st.warning("Please enter job requirements first")
+            else:
+                st.session_state.job_requirements = job_requirements
+                with st.spinner("Analyzing resumes..."):
+                    try:
+                        results = asyncio.run(
+                            st.session_state.resume_analyzer.analyze_resumes(job_requirements)
+                        )
+                        display_analysis_results(results)
+                    except Exception as e:
+                        st.error(f"❌ Error analyzing resumes: {str(e)}")
+    else:
+        st.info("👈 Please initialize the system using the sidebar controls")
+
+if __name__ == "__main__":
+    main()
+
+================================================================================
+# File: .\app_debug.log
+================================================================================
+
+
+
+================================================================================
+# File: .\config\__init__.py
+================================================================================
+
+# resume_analyzer/config/__init__.py
+"""Configuration package for the Resume Analysis System."""
+
+from .settings import *
+
+================================================================================
+# File: .\config\settings.py
+================================================================================
+
+# resume_analyzer/config/settings.py
+import os
+from dotenv import load_dotenv
+
+class Settings:
+    def __init__(self):
+        # Load environment variables
+        load_dotenv()
+        
+        # API Keys
+        self.OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
+        self.PINECONE_API_KEY = os.getenv('PINECONE_API_KEY')
+        
+        # DeepSeek Model Settings
+        self.DEEPSEEK_MODEL = os.getenv('DEEPSEEK_MODEL', 'deepseek/deepseek-r1:nitro')
+        self.DEEPSEEK_TEMPERATURE = float(os.getenv('DEEPSEEK_TEMPERATURE', '0.5'))
+        self.DEEPSEEK_API_BASE = os.getenv('DEEPSEEK_API_BASE', 'https://openrouter.ai/api/v1')
+        
+        # Pinecone Settings
+        self.PINECONE_INDEX_NAME = os.getenv('PINECONE_INDEX_NAME', 'resume-analysis')
+        self.PINECONE_DIMENSION = int(os.getenv('PINECONE_DIMENSION', '768'))
+        self.PINECONE_METRIC = os.getenv('PINECONE_METRIC', 'cosine')
+        self.PINECONE_CLOUD = os.getenv('PINECONE_CLOUD', 'aws')
+        self.PINECONE_REGION = os.getenv('PINECONE_REGION', 'us-east-1')
+        
+        # Embeddings Settings
+        self.EMBEDDINGS_MODEL = os.getenv('EMBEDDINGS_MODEL', 'sentence-transformers/all-mpnet-base-v2')
+        self.EMBEDDINGS_DEVICE = os.getenv('EMBEDDINGS_DEVICE', 'cpu')
+        
+        # Document Processing Settings
+        self.CHUNK_SIZE = int(os.getenv('CHUNK_SIZE', '1000'))
+        self.CHUNK_OVERLAP = int(os.getenv('CHUNK_OVERLAP', '100'))
+        
+        # Data Directory
+        self.RESUME_DIR = os.getenv('RESUME_DIR', 'resumes')
+
+# Create a single instance to be imported by other modules
+settings = Settings()
+
+# Make settings available for import
+__all__ = ['settings']
+
+================================================================================
+# File: .\env_template
+================================================================================
+
+# Required API Keys
+# Get your OpenRouter API key from https://openrouter.ai/
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+
+# Get your Pinecone API key from https://www.pinecone.io/
+PINECONE_API_KEY=your_pinecone_api_key_here
+
+# Optional: Pinecone Settings
+# Only change these if you want to use different values from the defaults
+PINECONE_INDEX_NAME=resume-analysis
+PINECONE_DIMENSION=768
+PINECONE_METRIC=cosine
+PINECONE_CLOUD=aws
+PINECONE_REGION=us-east-1
+
+# Optional: DeepSeek Model Settings
+# Only change these if you want to use different model parameters
+DEEPSEEK_MODEL=deepseek/deepseek-r1:nitro
+DEEPSEEK_TEMPERATURE=0.5
+DEEPSEEK_API_BASE=https://openrouter.ai/api/v1
+
+# Optional: Document Processing Settings
+# Adjust these based on your needs for text chunking
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=100
+
+# Optional: Data Directory
+# Change this if you want to store resumes in a different directory
+RESUME_DIR=resumes
+
+# Optional: Logging Level
+# Values: DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_LEVEL=INFO
+
+# Optional: Embeddings Settings
+# Change these if you want to use a different embeddings model
+EMBEDDINGS_MODEL=sentence-transformers/all-mpnet-base-v2
+EMBEDDINGS_DEVICE=cpu  # Change to 'cuda' if using GPU
+
+================================================================================
+# File: .\models\__init__.py
+================================================================================
+
+# resume_analyzer/models/__init__.py
+"""Models package for the Resume Analysis System."""
+
+from .deepseek_llm import OpenRouterDeepSeek
+
+================================================================================
+# File: .\models\deepseek_llm.py
+================================================================================
+
+# resume_analyzer/models/deepseek_llm.py
+import requests
+import time
+from typing import Any, List, Optional
+from langchain.llms.base import LLM
+from langchain.callbacks.manager import CallbackManagerForLLMRun
+
+from config import settings
+from utils.logging_config import logger
+
+class OpenRouterDeepSeek(LLM):
+    """Custom LLM class for DeepSeek via OpenRouter"""
+    
+    def __init__(
+        self, 
+        api_key: str,
+        model_name: str = settings.DEEPSEEK_MODEL,
+        temperature: float = settings.DEEPSEEK_TEMPERATURE,
+        **kwargs: Any
+    ):
+        super().__init__(**kwargs)
+        self._api_key = api_key
+        self._model_name = model_name
+        self._temperature = temperature
+        self._api_base = settings.DEEPSEEK_API_BASE
+
+    async def ainvoke(self, prompt: str, **kwargs) -> str:
+        """Asynchronous invocation method for DeepSeek"""
+        logger.debug("Entering ainvoke method")
+        try:
+            result = self._call(prompt, **kwargs)
+            logger.debug(f"ainvoke result type: {type(result)}")
+            return result
+        except Exception as e:
+            logger.error(f"Error in ainvoke: {str(e)}")
+            logger.error(f"Error type: {type(e)}")
+            raise
+
+    def _call(
+        self,
+        prompt: str,
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> str:
+        max_retries = 3
+        retries = 0
+        
+        while retries < max_retries:
+            try:
+                headers = {
+                    "Authorization": f"Bearer {self._api_key}",
+                    "HTTP-Referer": "$REFERER",
+                    "X-Title": "Resume Analysis System",
+                    "Content-Type": "application/json"
+                }
+                
+                messages = [
+                    {"role": "system", "content": "You are an expert HR assistant that analyzes resumes and provides detailed matching analysis against job requirements."},
+                    {"role": "user", "content": prompt}
+                ]
+                
+                payload = {
+                    "model": self._model_name,
+                    "messages": messages,
+                    "temperature": self._temperature,
+                    "max_tokens": 1500,
+                    "stream": False
+                }
+                
+                if stop:
+                    payload["stop"] = stop
+                
+                response = requests.post(
+                    f"{self._api_base}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=30
+                )
+                
+                if response.status_code != 200:
+                    error_detail = response.json().get('error', {}).get('message', 'Unknown error')
+                    logger.error(f"OpenRouter API Error: {error_detail}")
+                    raise ValueError(f"OpenRouter API Error: {error_detail}")
+                
+                response_data = response.json()
+                return response_data["choices"][0]["message"]["content"]
+            
+            except (requests.exceptions.RequestException) as e:
+                retries += 1
+                if retries == max_retries:
+                    logger.error(f"Failed after {max_retries} retries: {str(e)}")
+                    raise
+                logger.warning(f"Retry {retries}/{max_retries} after error: {str(e)}")
+                time.sleep(2 ** retries)  # Exponential backoff
+                continue
+                
+        raise Exception("Maximum retries exceeded")
+
+    @property
+    def _llm_type(self) -> str:
+        return "openrouter_deepseek"
+
+================================================================================
+# File: .\projectstructure.md
+================================================================================
+
+resume_analyzer/
+│
+├── **init**.py
+├── config/
+│ ├── **init**.py
+│ └── settings.py
+├── models/
+│ ├── **init**.py
+│ └── deepseek_llm.py
+├── services/
+│ ├── **init**.py
+│ ├── resume_analyzer.py
+│ └── vector_store.py
+├── utils/
+│ ├── **init**.py
+│ └── logging_config.py
+└── app.py
+
+
+================================================================================
+# File: .\resume_analyzer.egg-info\PKG-INFO
+================================================================================
+
+Metadata-Version: 2.2
+Name: resume_analyzer
+Version: 1.0.0
+Requires-Dist: streamlit
+Requires-Dist: python-dotenv
+Requires-Dist: langchain
+Requires-Dist: langchain-community
+Requires-Dist: langchain-core
+Requires-Dist: pinecone-client
+Requires-Dist: sentence-transformers
+Requires-Dist: transformers
+Requires-Dist: torch
+Requires-Dist: pypdf
+Requires-Dist: huggingface-hub
+Requires-Dist: nltk
+Dynamic: requires-dist
+
+
+================================================================================
+# File: .\resume_analyzer.egg-info\SOURCES.txt
+================================================================================
+
+setup.py
+config/__init__.py
+config/settings.py
+models/__init__.py
+models/deepseek_llm.py
+resume_analyzer.egg-info/PKG-INFO
+resume_analyzer.egg-info/SOURCES.txt
+resume_analyzer.egg-info/dependency_links.txt
+resume_analyzer.egg-info/requires.txt
+resume_analyzer.egg-info/top_level.txt
+services/__init__.py
+services/resume_analyzer.py
+services/vector_store.py
+utils/__init__.py
+utils/logging_config.py
+
+================================================================================
+# File: .\resume_analyzer.egg-info\dependency_links.txt
+================================================================================
+
+
+
+
+================================================================================
+# File: .\resume_analyzer.egg-info\requires.txt
+================================================================================
+
+streamlit
+python-dotenv
+langchain
+langchain-community
+langchain-core
+pinecone-client
+sentence-transformers
+transformers
+torch
+pypdf
+huggingface-hub
+nltk
+
+
+================================================================================
+# File: .\resume_analyzer.egg-info\top_level.txt
+================================================================================
+
+config
+models
+services
+utils
+
+
+================================================================================
+# File: .\run.py
+================================================================================
+
+# run.py
+import os
+import sys
+
+# Add the project root to Python path
+project_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, project_root)
+
+# Import and run the Streamlit app
+import app
+
+================================================================================
+# File: .\services\__init__.py
+================================================================================
+
+# resume_analyzer/services/__init__.py
+"""Services package for the Resume Analysis System."""
+
+from .resume_analyzer import ResumeAnalyzer
+from .vector_store import VectorStoreService
+
+================================================================================
+# File: .\services\resume_analyzer.py
+================================================================================
+
+# resume_analyzer/services/resume_analyzer.py
+import json
+from typing import Dict, Any, List
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.document_loaders import DirectoryLoader, TextLoader, CSVLoader, PyPDFLoader
+import streamlit as st
+import time
+
+from config import settings
+from utils.logging_config import logger
+from models.deepseek_llm import OpenRouterDeepSeek
+from services.vector_store import VectorStoreService
+
+class ResumeAnalyzer:
+    def __init__(self, openrouter_api_key: str, pinecone_api_key: str):
+        """Initialize the Resume Analyzer with required API keys"""
+        self.openrouter_api_key = openrouter_api_key
+        self.vector_store = VectorStoreService(pinecone_api_key)
+        self.llm = OpenRouterDeepSeek(api_key=openrouter_api_key)
+        self.vectorstore = None
+    
+    @st.cache_data(ttl=10)
+    def list_stored_resumes(_self) -> List[str]:
+        """Return list of resumes stored in the vector database"""
+        return _self.vector_store.list_documents()
+    
+    def delete_resume(self, resume_filename: str) -> bool:
+        """Delete a specific resume from the vector database"""
+        success = self.vector_store.delete_document(resume_filename)
+        if success:
+            time.sleep(2)  # Allow time for Pinecone to update
+            self.list_stored_resumes.clear()  # Clear the cache
+        return success
+
+    def process_resumes(self, data_dir: str = settings.RESUME_DIR) -> tuple[bool, str]:
+        """
+        Process and store resumes in the vector database
+        
+        Args:
+            data_dir: Directory containing resume files
+            
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        try:
+            # Set up document loaders
+            loaders = [
+                DirectoryLoader(data_dir, glob="**/*.pdf", loader_cls=PyPDFLoader),
+                DirectoryLoader(data_dir, glob="**/*.txt", loader_cls=TextLoader),
+                DirectoryLoader(data_dir, glob="**/*.csv", loader_cls=CSVLoader)
+            ]
+            
+            documents = []
+            for loader in loaders:
+                try:
+                    docs = loader.load()
+                    documents.extend(docs)
+                except Exception as e:
+                    logger.error(f"Error loading documents: {str(e)}")
+                    continue
+            
+            if not documents:
+                raise ValueError("No resumes were loaded")
+            
+            # Create chunks
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=settings.CHUNK_SIZE,
+                chunk_overlap=settings.CHUNK_OVERLAP,
+                length_function=len,
+                add_start_index=True,
+            )
+            chunks = text_splitter.split_documents(documents)
+            
+            # Create or update vector store
+            self.vectorstore = self.vector_store.create_from_documents(chunks)
+            
+            # Clear the cache after processing new resumes
+            self.list_stored_resumes.clear()
+            
+            return True, f"Processed {len(documents)} resumes"
+            
+        except Exception as e:
+            logger.error(f"Error processing resumes: {str(e)}")
+            return False, str(e)
+
+    async def analyze_resumes(self, job_requirements: str) -> Dict[str, Any]:
+        """
+        Analyze resumes against job requirements
+        
+        Args:
+            job_requirements: String containing job requirements
+            
+        Returns:
+            Dictionary containing analysis results and metadata
+            
+        Raises:
+            Exception: If analysis fails
+        """
+        try:
+            if not self.vectorstore:
+                raise ValueError("Vector store not initialized. Please process resumes first.")
+
+            # Retrieve relevant resume chunks
+            docs = self.vectorstore.similarity_search(job_requirements, k=10)
+            
+            # Group chunks by resume
+            resume_contents = {}
+            for doc in docs:
+                source = doc.metadata.get('source', 'Unknown')
+                if source not in resume_contents:
+                    resume_contents[source] = []
+                resume_contents[source].append(doc.page_content)
+            
+            # Analyze each resume
+            analysis_results = []
+            for resume_file, contents in resume_contents.items():
+                full_content = "\n".join(contents)
+                
+                analysis_prompt = f"""
+                Act as an expert HR analyst. Analyze this resume against the following job requirements. 
+                Provide a structured analysis in valid JSON format.
+                
+                Job Requirements:
+                {job_requirements}
+                
+                Resume Content:
+                {full_content}
+                
+                Response Instructions:
+                1. Match Score: Provide a number between 0-100
+                2. List 3-5 key matching qualifications
+                3. List 2-3 missing requirements
+                4. List 2-3 additional relevant skills
+                5. Calculate years of relevant experience
+                6. Write a 2-3 sentence summary
+                
+                Required JSON Structure:
+                {{
+                    "match_score": <number>,
+                    "qualifications_match": ["qual1", "qual2", "qual3"],
+                    "missing_requirements": ["req1", "req2"],
+                    "additional_skills": ["skill1", "skill2"],
+                    "years_experience": <number>,
+                    "summary": "Brief summary text"
+                }}
+                
+                The response must be ONLY valid JSON with no additional text.
+                """
+                
+                try:
+                    result = await self.llm.ainvoke(analysis_prompt)
+                    
+                    # Clean and parse the response
+                    result_text = result.strip()
+                    if not result_text.startswith('{'):
+                        result_text = result_text[result_text.find('{'):]
+                    if not result_text.endswith('}'):
+                        result_text = result_text[:result_text.rfind('}')+1]
+                    
+                    parsed_result = json.loads(result_text)
+                    
+                    # Validate required fields
+                    required_fields = ['match_score', 'qualifications_match', 'missing_requirements', 
+                                     'additional_skills', 'years_experience', 'summary']
+                    for field in required_fields:
+                        if field not in parsed_result:
+                            raise ValueError(f"Missing required field: {field}")
+                    
+                    parsed_result["resume_file"] = resume_file
+                    analysis_results.append(parsed_result)
+                    logger.info(f"Successfully analyzed resume: {resume_file}")
+                    
+                except Exception as e:
+                    logger.error(f"Error analyzing {resume_file}: {str(e)}")
+                    continue
+            
+            # Sort results by match score
+            sorted_results = sorted(analysis_results, key=lambda x: x.get('match_score', 0), reverse=True)
+            
+            return {
+                "analysis": sorted_results,
+                "total_resumes": len(resume_contents)
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing resumes: {str(e)}")
+            raise
+
+================================================================================
+# File: .\services\vector_store.py
+================================================================================
+
+# resume_analyzer/services/vector_store.py
+from typing import List
+from pinecone import Pinecone
+from langchain_pinecone import PineconeVectorStore
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+from config import settings
+from utils.logging_config import logger
+
+class VectorStoreService:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.pc = Pinecone(api_key=api_key)
+        self.index_name = settings.PINECONE_INDEX_NAME
+        self.embeddings = self._setup_embeddings()
+        
+    def _setup_embeddings(self):
+        return HuggingFaceEmbeddings(
+            model_name=settings.EMBEDDINGS_MODEL,
+            model_kwargs={'device': settings.EMBEDDINGS_DEVICE}
+        )
+    
+    def initialize_store(self):
+        try:
+            if self.index_name not in self.pc.list_indexes().names():
+                logger.info(f"Creating new index: {self.index_name}")
+                self.pc.create_index(...)
+            else:
+                logger.info(f"Using existing index: {self.index_name}")
+            return self.pc.Index(self.index_name)
+        except Exception as e:
+            logger.error(f"Pinecone connection failed: {str(e)}")
+            raise
+
+    
+    def list_documents(self) -> List[str]:
+        """List all documents in the vector store"""
+        try:
+            if self.index_name not in self.pc.list_indexes().names():
+                return []
+            
+            index = self.pc.Index(self.index_name)
+            query_response = index.query(
+                vector=[0] * settings.PINECONE_DIMENSION,
+                top_k=10000,
+                include_metadata=True
+            )
+            
+            unique_docs = {
+                match.metadata["source"] 
+                for match in query_response.matches 
+                if "source" in match.metadata
+            }
+            return sorted(list(unique_docs))
+        except Exception as e:
+            logger.error(f"Error listing documents: {str(e)}")
+            return []
+    
+    def delete_document(self, filename: str) -> bool:
+        """Delete a document from the vector store"""
+        try:
+            logger.info(f"Attempting to delete document: {filename}")
+            
+            if self.index_name not in self.pc.list_indexes().names():
+                logger.warning(f"Index {self.index_name} not found")
+                return False
+            
+            index = self.pc.Index(self.index_name)
+            
+            query_response = index.query(
+                vector=[0.0] * settings.PINECONE_DIMENSION,
+                top_k=100,
+                include_metadata=True
+            )
+            
+            vectors_to_delete = [
+                match.id for match in query_response.matches 
+                if match.metadata.get('source') == filename
+            ]
+            
+            if vectors_to_delete:
+                delete_response = index.delete(ids=vectors_to_delete)
+                logger.info(f"Successfully deleted vectors for {filename}")
+                return True
+            else:
+                logger.warning(f"No vectors found for document: {filename}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error deleting document: {str(e)}")
+            return False
+    
+    def create_from_documents(self, documents):
+        """Create or update vector store from documents"""
+        try:
+            index = self.initialize_store()
+            vectorstore = PineconeVectorStore.from_documents(
+                documents=documents,
+                embedding=self.embeddings,
+                index_name=self.index_name,
+                pinecone_api_key=self.api_key
+            )
+            return vectorstore
+        except Exception as e:
+            logger.error(f"Error creating vector store: {str(e)}")
+            raise
+
+================================================================================
+# File: .\setup.py
+================================================================================
+
+# setup.py
+from setuptools import setup, find_packages
+
+setup(
+    name="resume_analyzer",
+    version="1.0.0",
+    packages=find_packages(),
+    install_requires=[
+        "streamlit",
+        "python-dotenv",
+        "langchain",
+        "langchain-community",
+        "langchain-core",
+        "pinecone-client",
+        "sentence-transformers",
+        "transformers",
+        "torch",
+        "pypdf",
+        "huggingface-hub",
+        "nltk",
+    ],
+)
+
+================================================================================
+# File: .\test.py
+================================================================================
+
+import streamlit as st
+st.write("Hello World")
+
+================================================================================
+# File: .\utils\__init__.py
+================================================================================
+
+# resume_analyzer/utils/__init__.py
+"""Utilities package for the Resume Analysis System."""
+
+from .logging_config import logger
+
+================================================================================
+# File: .\utils\logging_config.py
+================================================================================
+
+import logging
+import sys
+
+def setup_logging():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    
+    # Console handler
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.DEBUG)
+    
+    # File handler
+    fh = logging.FileHandler('app_debug.log')
+    fh.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    fh.setFormatter(formatter)
+
+    logger.addHandler(ch)
+    logger.addHandler(fh)
+    return logger
+
+logger = setup_logging()
+
+
+================================================================================
+# File: .\verify.py
+================================================================================
+
+import streamlit as st
+import langchain
+import pinecone
+import torch
+import transformers
+import nltk
+
+print("All critical packages imported successfully!")

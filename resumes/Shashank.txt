@@ -1,0 +1,48 @@
+Shashank G
+Junior Frontend Developer
+emily.brown@email.com | 998612344
+github.com/emilybrown | linkedin.com/in/emilybrown
+
+SUMMARY
+Creative frontend developer with strong design background. Focused on creating intuitive and accessible user interfaces with modern web technologies.
+
+SKILLS
+- Languages: JavaScript, HTML5, CSS3, TypeScript
+- Frontend: React.js, Angular, Sass
+- UI Frameworks: Material-UI, Tailwind CSS
+- Version Control: Git, GitHub
+- Design Tools: Figma, Adobe XD
+- Testing: Jest, React Testing Library
+- Performance: Lighthouse, WebPageTest
+
+PROJECTS
+Portfolio Website Generator
+- Created a customizable portfolio website generator using React and Tailwind CSS
+- Implemented drag-and-drop interface for easy customization
+- Added responsive design templates
+- GitHub: github.com/emilybrown/portfolio-gen
+
+Accessibility Dashboard
+- Developed an accessibility testing dashboard using Angular
+- Implemented automated WCAG 2.1 compliance checking
+- Created detailed reporting system
+- GitHub: github.com/emilybrown/a11y-dash
+
+Interactive Learning Platform
+- Built an interactive learning platform using React and Material-UI
+- Implemented progress tracking and achievement system
+- Added interactive coding challenges
+- GitHub: github.com/emilybrown/learn-interactive
+
+EDUCATION
+Bachelor of Arts in Interactive Design
+Creative Arts University
+Graduated: April 2023
+GPA: 3.8/4.0
+
+CERTIFICATIONS
+- Web Accessibility Fundamentals (W3C)
+- React Development Certification
+
+LANGUAGES
+English (Native), French (Basic)

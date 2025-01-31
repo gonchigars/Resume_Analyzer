@@ -1,0 +1,48 @@
+DAVID KIM
+Junior Backend Developer
+david.kim@email.com | (555) 456-7890
+github.com/davidkim | linkedin.com/in/davidkim
+
+SUMMARY
+Detail-oriented backend developer with strong focus on API development and database optimization. Passionate about creating efficient and scalable server-side solutions.
+
+SKILLS
+- Languages: Python, Java, SQL
+- Backend: Flask, FastAPI, Spring Boot
+- Databases: PostgreSQL, Redis, MySQL
+- Message Queues: RabbitMQ, Redis
+- Tools: Git, Docker, Postman
+- Testing: PyTest, JUnit
+- Monitoring: Grafana, Prometheus
+
+PROJECTS
+API Gateway Service
+- Developed a microservices API gateway using FastAPI and Redis
+- Implemented rate limiting and request caching
+- Added comprehensive API documentation using Swagger
+- GitHub: github.com/davidkim/api-gateway
+
+Data Processing Pipeline
+- Built a data processing pipeline using Python and RabbitMQ
+- Implemented parallel processing for large datasets
+- Created monitoring dashboard using Grafana
+- GitHub: github.com/davidkim/data-pipeline
+
+Inventory Management System
+- Developed an inventory management system using Spring Boot
+- Implemented real-time stock tracking and alerts
+- Added barcode scanning functionality
+- GitHub: github.com/davidkim/inventory-sys
+
+EDUCATION
+Bachelor of Science in Computer Engineering
+Tech State University
+Graduated: August 2023
+GPA: 3.4/4.0
+
+CERTIFICATIONS
+- Python Professional Certification
+- PostgreSQL Administration Basics
+
+LANGUAGES
+English (Native), Korean (Fluent)

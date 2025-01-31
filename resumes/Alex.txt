@@ -1,0 +1,41 @@
+ALEX RODRIGUEZ
+Junior Software Developer
+alex.rodriguez@email.com | (555) 123-4567
+github.com/alexrod | linkedin.com/in/alexrod
+
+SUMMARY
+Recent computer science graduate with hands-on experience in web development and mobile applications. Passionate about creating user-friendly applications and learning new technologies.
+
+SKILLS
+- Languages: Python, JavaScript, Java
+- Frontend: React.js, HTML5, CSS3
+- Backend: Node.js, Express.js
+- Databases: MongoDB, MySQL
+- Tools: Git, VS Code, Docker
+- Testing: Jest, PyTest
+
+PROJECTS
+E-commerce Platform (Personal Project)
+- Developed a full-stack e-commerce website using MERN stack (MongoDB, Express.js, React.js, Node.js)
+- Implemented user authentication, shopping cart functionality, and payment integration
+- Deployed application using Docker and AWS
+- GitHub: github.com/alexrod/shopwise
+
+Weather Dashboard (Bootcamp Project)
+- Built a weather dashboard using React.js and OpenWeatherMap API
+- Implemented geolocation features and 5-day weather forecasts
+- Utilized localStorage for saving user preferences
+- GitHub: github.com/alexrod/weatherapp
+
+EDUCATION
+Bachelor of Science in Computer Science
+University of Technology
+Graduated: May 2023
+GPA: 3.5/4.0
+
+CERTIFICATIONS
+- AWS Certified Cloud Practitioner
+- MongoDB Basics Certification
+
+LANGUAGES
+English (Native), Spanish (Conversational)
