@@ -35,4 +35,4 @@ LOG_LEVEL=INFO
 # Optional: Embeddings Settings
 # Change these if you want to use a different embeddings model
 EMBEDDINGS_MODEL=sentence-transformers/all-mpnet-base-v2
-EMBEDDINGS_DEVICE=cpu  # Change to 'cuda' if using GPU
+EMBEDDINGS_DEVICE=cpu

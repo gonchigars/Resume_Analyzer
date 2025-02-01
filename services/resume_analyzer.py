@@ -1,68 +1,88 @@
 # resume_analyzer/services/resume_analyzer.py
 import json
-from typing import Dict, Any, List
+import os
+from typing import Dict, Any, List, Tuple
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import DirectoryLoader, TextLoader, CSVLoader, PyPDFLoader
+from langchain_community.document_loaders import DirectoryLoader, TextLoader, PyPDFLoader
 import streamlit as st
 import time
 
-from config import settings
+from config.settings import settings
 from utils.logging_config import logger
 from models.deepseek_llm import OpenRouterDeepSeek
 from services.vector_store import VectorStoreService
+from langchain_pinecone import PineconeVectorStore
 
 class ResumeAnalyzer:
     def __init__(self, openrouter_api_key: str, pinecone_api_key: str):
         """Initialize the Resume Analyzer with required API keys"""
+        logger.info("Initializing ResumeAnalyzer")
         self.openrouter_api_key = openrouter_api_key
         self.vector_store = VectorStoreService(pinecone_api_key)
         self.llm = OpenRouterDeepSeek(api_key=openrouter_api_key)
-        self.vectorstore = None
-    
-    @st.cache_data(ttl=10)
-    def list_stored_resumes(_self) -> List[str]:
-        """Return list of resumes stored in the vector database"""
-        return _self.vector_store.list_documents()
-    
-    def delete_resume(self, resume_filename: str) -> bool:
-        """Delete a specific resume from the vector database"""
-        success = self.vector_store.delete_document(resume_filename)
-        if success:
-            time.sleep(2)  # Allow time for Pinecone to update
-            self.list_stored_resumes.clear()  # Clear the cache
-        return success
-
-    def process_resumes(self, data_dir: str = settings.RESUME_DIR) -> tuple[bool, str]:
-        """
-        Process and store resumes in the vector database
         
-        Args:
-            data_dir: Directory containing resume files
-            
-        Returns:
-            Tuple of (success: bool, message: str)
-        """
+        # Initialize vector store and process existing resumes
         try:
-            # Set up document loaders
-            loaders = [
-                DirectoryLoader(data_dir, glob="**/*.pdf", loader_cls=PyPDFLoader),
-                DirectoryLoader(data_dir, glob="**/*.txt", loader_cls=TextLoader),
-                DirectoryLoader(data_dir, glob="**/*.csv", loader_cls=CSVLoader)
-            ]
+            self.vectorstore = self._initialize_vectorstore()
+        except Exception as e:
+            logger.error(f"Error initializing vector store: {str(e)}")
+            raise
+
+    def _initialize_vectorstore(self):
+        """Initialize vector store and process existing resumes"""
+        # Initialize Pinecone connection
+        index = self.vector_store.initialize_store()
+        
+        # Create VectorStore instance
+        if index:
+            return PineconeVectorStore(
+                index=index,
+                embedding=self.vector_store.embeddings,
+                text_key="text"
+            )
+        return None
+
+    def process_new_resumes(self, data_dir: str = settings.RESUME_DIR) -> Tuple[bool, str]:
+        """Process only newly added resumes"""
+        try:
+            logger.info(f"Processing new resumes from directory: {data_dir}")
             
+            if not os.path.exists(data_dir):
+                logger.error(f"Directory not found: {data_dir}")
+                return False, "Resume directory not found"
+            
+            # Get list of files and currently stored resumes
+            files = [f for f in os.listdir(data_dir) 
+                    if os.path.isfile(os.path.join(data_dir, f))]
+            stored_resumes = self.vector_store.list_documents()
+            
+            # Filter for new files
+            new_files = [f for f in files 
+                        if os.path.join(data_dir, f) not in stored_resumes]
+            
+            if not new_files:
+                logger.info("No new resumes to process")
+                return True, "No new resumes to process"
+            
+            logger.info(f"Found {len(new_files)} new files to process")
+            
+            # Process new files
             documents = []
-            for loader in loaders:
+            for file in new_files:
+                file_path = os.path.join(data_dir, file)
                 try:
-                    docs = loader.load()
-                    documents.extend(docs)
+                    if file.lower().endswith('.pdf'):
+                        loader = PyPDFLoader(file_path)
+                    else:
+                        loader = TextLoader(file_path)
+                    documents.extend(loader.load())
                 except Exception as e:
-                    logger.error(f"Error loading documents: {str(e)}")
-                    continue
+                    logger.error(f"Error loading {file}: {str(e)}")
             
             if not documents:
-                raise ValueError("No resumes were loaded")
+                return False, "No new resumes could be processed"
             
-            # Create chunks
+            # Create chunks and update vector store
             text_splitter = RecursiveCharacterTextSplitter(
                 chunk_size=settings.CHUNK_SIZE,
                 chunk_overlap=settings.CHUNK_OVERLAP,
@@ -71,18 +91,29 @@ class ResumeAnalyzer:
             )
             chunks = text_splitter.split_documents(documents)
             
-            # Create or update vector store
+            # Update vector store
             self.vectorstore = self.vector_store.create_from_documents(chunks)
             
-            # Clear the cache after processing new resumes
-            self.list_stored_resumes.clear()
-            
-            return True, f"Processed {len(documents)} resumes"
+            return True, f"Successfully processed {len(new_files)} new resumes"
             
         except Exception as e:
-            logger.error(f"Error processing resumes: {str(e)}")
-            return False, str(e)
+            logger.error(f"Error processing new resumes: {str(e)}")
+            return False, f"Error processing new resumes: {str(e)}"
 
+    def list_stored_resumes(self) -> List[str]:
+        """Return list of resumes stored in the vector database"""
+        return self.vector_store.list_documents()
+    
+    def delete_resume(self, resume_filename: str) -> bool:
+        """Delete a specific resume from the vector database"""
+        success = self.vector_store.delete_document(resume_filename)
+        if success:
+            # Reinitialize vector store after deletion
+            try:
+                self.vectorstore = self._initialize_vectorstore()
+            except Exception as e:
+                logger.error(f"Error reinitializing vector store after deletion: {str(e)}")
+        return success
     async def analyze_resumes(self, job_requirements: str) -> Dict[str, Any]:
         """
         Analyze resumes against job requirements
@@ -94,14 +125,18 @@ class ResumeAnalyzer:
             Dictionary containing analysis results and metadata
             
         Raises:
+            ValueError: If vector store is not initialized
             Exception: If analysis fails
         """
         try:
             if not self.vectorstore:
+                logger.error("Vector store not initialized")
                 raise ValueError("Vector store not initialized. Please process resumes first.")
 
+            logger.info("Starting resume analysis...")
             # Retrieve relevant resume chunks
             docs = self.vectorstore.similarity_search(job_requirements, k=10)
+            logger.info(f"Retrieved {len(docs)} relevant chunks")
             
             # Group chunks by resume
             resume_contents = {}
@@ -111,9 +146,12 @@ class ResumeAnalyzer:
                     resume_contents[source] = []
                 resume_contents[source].append(doc.page_content)
             
+            logger.info(f"Analyzing {len(resume_contents)} resumes")
+            
             # Analyze each resume
             analysis_results = []
             for resume_file, contents in resume_contents.items():
+                logger.info(f"Analyzing resume: {resume_file}")
                 full_content = "\n".join(contents)
                 
                 analysis_prompt = f"""
@@ -149,6 +187,7 @@ class ResumeAnalyzer:
                 
                 try:
                     result = await self.llm.ainvoke(analysis_prompt)
+                    logger.debug(f"Raw LLM response: {result}")
                     
                     # Clean and parse the response
                     result_text = result.strip()
@@ -160,8 +199,15 @@ class ResumeAnalyzer:
                     parsed_result = json.loads(result_text)
                     
                     # Validate required fields
-                    required_fields = ['match_score', 'qualifications_match', 'missing_requirements', 
-                                     'additional_skills', 'years_experience', 'summary']
+                    required_fields = [
+                        'match_score', 
+                        'qualifications_match', 
+                        'missing_requirements',
+                        'additional_skills', 
+                        'years_experience', 
+                        'summary'
+                    ]
+                    
                     for field in required_fields:
                         if field not in parsed_result:
                             raise ValueError(f"Missing required field: {field}")
@@ -174,9 +220,17 @@ class ResumeAnalyzer:
                     logger.error(f"Error analyzing {resume_file}: {str(e)}")
                     continue
             
-            # Sort results by match score
-            sorted_results = sorted(analysis_results, key=lambda x: x.get('match_score', 0), reverse=True)
+            if not analysis_results:
+                raise Exception("No resumes could be analyzed successfully")
             
+            # Sort results by match score
+            sorted_results = sorted(
+                analysis_results, 
+                key=lambda x: x.get('match_score', 0), 
+                reverse=True
+            )
+            
+            logger.info("Analysis completed successfully")
             return {
                 "analysis": sorted_results,
                 "total_resumes": len(resume_contents)

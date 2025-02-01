@@ -25,7 +25,7 @@ class Settings:
         
         # Embeddings Settings
         self.EMBEDDINGS_MODEL = os.getenv('EMBEDDINGS_MODEL', 'sentence-transformers/all-mpnet-base-v2')
-        self.EMBEDDINGS_DEVICE = os.getenv('EMBEDDINGS_DEVICE', 'cpu')
+        self.EMBEDDINGS_DEVICE = os.getenv('EMBEDDINGS_DEVICE', 'cpu').strip()  # Added .strip() to remove any whitespace
         
         # Document Processing Settings
         self.CHUNK_SIZE = int(os.getenv('CHUNK_SIZE', '1000'))

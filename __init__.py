@@ -1,7 +1,8 @@
-# resume_analyzer/__init__.py
-"""Resume Analysis System
+# resume_analyzer/services/__init__.py
+"""Services package for the Resume Analysis System."""
 
-A system for analyzing resumes against job requirements using AI and vector similarity search.
-"""
+from .document_processor import EnhancedDocumentProcessor
+from .vector_store import VectorStoreService
+from .resume_analyzer import ResumeAnalyzer
 
-__version__ = "1.0.0"
+__all__ = ['EnhancedDocumentProcessor', 'VectorStoreService', 'ResumeAnalyzer']

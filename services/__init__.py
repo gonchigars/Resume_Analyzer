@@ -3,3 +3,6 @@
 
 from .resume_analyzer import ResumeAnalyzer
 from .vector_store import VectorStoreService
+from .document_processor import EnhancedDocumentProcessor
+
+__all__ = ['ResumeAnalyzer', 'VectorStoreService', 'EnhancedDocumentProcessor']
