@@ -10,14 +10,16 @@ setup(
         "langchain",
         "langchain-community",
         "langchain-core",
-        "pinecone-client",
+        "langchain-pinecone",  # Added this package
+        "pinecone>=0.8.0",
         "sentence-transformers",
         "transformers",
         "torch",
         "pypdf",
         "huggingface-hub",
         "nltk",
-        "unstructured",  # For document loading
-        "markdown",      # For markdown processing
+        "unstructured",
+        "markdown",
+        "aiohttp",
     ],
 )
