@@ -15,6 +15,21 @@ A system for analyzing resumes against job requirements using AI and vector simi
 - Python 3.8 or higher
 - pip (Python package installer)
 - Virtual environment (recommended)
+- OpenRouter API key
+- Pinecone API key (free tier available)
+
+## Dependencies
+
+Key packages used in this project:
+
+- `streamlit` - Web interface
+- `langchain` - AI/LLM framework
+- `langchain-pinecone` - Vector store integration
+- `pinecone` - Vector database
+- `sentence-transformers` - Text embeddings
+- `deepseek` - LLM model via OpenRouter
+- `pypdf` - PDF processing
+- `torch` - Machine learning backend
 
 ## Development Setup
 
@@ -142,6 +157,21 @@ resume_analyzer/
 - If you see import errors, ensure you've installed the package with `pip install -e .`
 - If API calls fail, check your `.env` file and API keys
 - For Pinecone errors, verify your index settings in the configuration
+- For package conflicts:
+  ```bash
+  # Clean reinstall (Windows)
+  deactivate
+  rmdir /s /q venv
+  python -m venv venv
+  .\venv\Scripts\activate
+  pip install -e .
+  ```
+- For `ModuleNotFoundError`, ensure all dependencies are properly installed:
+  ```bash
+  pip install -r requirements.txt  # If available
+  # or
+  pip install -e .  # Uses setup.py
+  ```
 
 ## License
 

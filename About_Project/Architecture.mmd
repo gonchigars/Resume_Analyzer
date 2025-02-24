@@ -1,0 +1,47 @@
+graph TB
+    subgraph Frontend
+        UI[Streamlit UI]
+        UI --> |User Input| APP[App Controller]
+    end
+
+    subgraph Core Services
+        APP --> |Initialize| RA[Resume Analyzer]
+        RA --> |Process| DP[Document Processor]
+        RA --> |Store/Query| VS[Vector Store Service]
+        RA --> |Analyze| LLM[DeepSeek LLM]
+    end
+
+    subgraph External Services
+        VS --> |Vector Storage| PIN[(Pinecone DB)]
+        LLM --> |API Calls| OR[OpenRouter API]
+        VS --> |Embeddings| HF[HuggingFace Models]
+    end
+
+    subgraph Utils & Config
+        CONF[Settings/Config] --> APP
+        LOG[Logging] --> APP
+        ENV[Environment Variables] --> CONF
+    end
+
+    subgraph Storage
+        FS[File System] --> |Resume Files| DP
+        PIN --> |Vector Data| VS
+    end
+
+    %% Data Flow
+    UI --> |Upload Resumes| FS
+    DP --> |Processed Chunks| VS
+    VS --> |Search Results| RA
+    LLM --> |Analysis Results| RA
+    RA --> |Final Results| UI
+
+    %% Styling
+    classDef external fill:#f9f,stroke:#333,stroke-width:2px
+    classDef core fill:#bbf,stroke:#333,stroke-width:2px
+    classDef frontend fill:#bfb,stroke:#333,stroke-width:2px
+    classDef utils fill:#fbb,stroke:#333,stroke-width:2px
+    
+    class PIN,OR,HF external
+    class RA,DP,VS,LLM core
+    class UI,APP frontend
+    class CONF,LOG,ENV,FS utils
